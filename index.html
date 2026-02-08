@@ -150,8 +150,8 @@ const KR_LABELS={
 };
 
 const KR_CHIPS={
-  AAPL:'🍎 애플',MSFT:'🪟 마이크로소프트',NVDA:'💚 엔비디아',
-  GOOGL:'🔍 구글',AMZN:'📦 아마존',META:'👤 메타',TSLA:'⚡ 테슬라'
+  AAPL:'애플 (AAPL)',MSFT:'마이크로소프트 (MSFT)',NVDA:'엔비디아 (NVDA)',
+  GOOGL:'구글 (GOOGL)',AMZN:'아마존 (AMZN)',META:'메타 (META)',TSLA:'테슬라 (TSLA)'
 };
 
 const KR_CATS={'MAG 7':['AAPL','MSFT','NVDA','GOOGL','AMZN','META','TSLA']};
@@ -557,6 +557,47 @@ function Simulator(){
   );
 }
 
+/* ===== 전략 설명 컴포넌트 ===== */
+function getStratExplain(label){
+  if(!label)return null;
+  if(label.indexOf('적립식')>=0){
+    var freq=label.indexOf('매월')>=0?'매월':label.indexOf('매주')>=0?'매주':'매일';
+    return freq+' 동일 금액을 매수합니다.\n• 시장 상황과 관계없이 정해진 주기마다 기계적으로 매수\n• 하락장에서 더 많은 수량, 상승장에서 적은 수량을 사는 효과\n• 평균 매입 단가를 낮추는 가장 기본적인 전략';
+  }
+  if(label.indexOf('이평선')>=0||label.indexOf('이평')>=0){
+    var mMatch=label.match(/(\d+)일/),tMatch=label.match(/([-]?\d+)%/);
+    var days=mMatch?mMatch[1]:'200',thresh=tMatch?tMatch[1]:'0';
+    var tNum=parseInt(thresh);
+    return '주가가 '+days+'일 이동평균선'+(tNum===0?' 아래':'보다 '+Math.abs(tNum)+'% 이상 아래')+'일 때 매수합니다.\n• '+days+'일 = 약 '+(Math.round(parseInt(days)/20))+'개월간의 평균 주가를 기준선으로 사용\n• '+thresh+'% = 이평선'+(tNum===0?' 바로 아래부터 매수 (추가 할인 없이)':'보다 '+Math.abs(tNum)+'% 더 떨어져야 매수 신호 발동')+'\n• 주가가 기준 위에 있으면 매수하지 않고 대기';
+  }
+  if(label.indexOf('급락')>=0){
+    var dMatch=label.match(/([-]?\d+)%/),rMatch=label.match(/RSI\s*(\d+)/);
+    var dip=dMatch?dMatch[1]:'-10',rsi=rMatch?rMatch[1]:'30';
+    var severe=Math.abs(parseInt(dip))>=20;
+    return '고점 대비 '+Math.abs(parseInt(dip))+'% 이상 하락하고 RSI가 '+rsi+' 이하일 때 매수합니다.\n• '+dip+'% = 최근 최고가에서 '+Math.abs(parseInt(dip))+'% 이상 떨어진 상태\n• RSI '+rsi+' = 과매도 구간 (숫자가 낮을수록 더 많이 빠진 상태)\n• 두 조건 모두 충족해야 매수'+(severe?'\n• 조건이 매우 까다로워 몇 년에 한 번만 발동 (금융위기·코로나급 폭락)':'');
+  }
+  if(label.indexOf('하이브리드')>=0){
+    var hMA=label.match(/MA(\d+)/),hDip=label.match(/([-]?\d+)%/);
+    var maD=hMA?hMA[1]:'200',dipD=hDip?Math.abs(parseInt(hDip[1])):'10';
+    return '평소엔 매월 적립식으로 꾸준히 매수 + 급락 시 추가 매수합니다.\n• 기본: 매월 정액 매수 (적립식)\n• 추가 매수 조건: '+maD+'일 이평선 이탈 또는 고점 대비 '+dipD+'%↓ + RSI 30 이하\n• 꾸준함 + 기회 포착을 동시에 추구하는 전략';
+  }
+  return null;
+}
+
+function StratExplain(props){
+  var label=props.label;
+  var s=useState(false),open=s[0],setOpen=s[1];
+  var text=getStratExplain(label);
+  if(!text)return null;
+  return React.createElement('div',{style:{marginTop:open?8:4}},
+    React.createElement('div',{onClick:function(e){e.stopPropagation();setOpen(!open);},style:{fontSize:10,color:'var(--t3)',cursor:'pointer',display:'flex',alignItems:'center',gap:4}},
+      React.createElement('span',{style:{fontSize:8,transition:'.2s',transform:open?'rotate(90deg)':'rotate(0deg)',display:'inline-block'}},'▶'),
+      '전략 설명'
+    ),
+    open&&React.createElement('div',{style:{marginTop:6,padding:'8px 10px',background:'rgba(255,255,255,.03)',borderRadius:6,border:'1px solid var(--bdr)',fontSize:10,color:'var(--t2)',lineHeight:1.8,whiteSpace:'pre-line'},onClick:function(e){e.stopPropagation();}},text)
+  );
+}
+
 /* ===== 탭 2: 타임머신 ===== */
 function TimeMachine(){
   var s1=useState(0),evt=s1[0],setE=s1[1];
@@ -569,13 +610,13 @@ function TimeMachine(){
     var yr=cYear?parseInt(cYear):LIFE_EVENTS[evt].y;
     var sd=yr+'-01-01';
     var strats=[
-      {t:'dca',l:'월 적립식',p:{budget:budget,frequency:'monthly'}},
-      {t:'dca',l:'주 적립식',p:{budget:budget,frequency:'weekly'}},
-      {t:'ma',l:'MA200 전략',p:{budget:budget,maPeriod:200,maThreshold:0}},
-      {t:'ma',l:'MA50 공격형',p:{budget:budget,maPeriod:50,maThreshold:-5}},
-      {t:'dip',l:'급락 -10%',p:{budget:budget,dipThreshold:-10,rsiThreshold:30}},
-      {t:'dip',l:'급락 -20%',p:{budget:budget,dipThreshold:-20,rsiThreshold:25}},
-      {t:'hybrid',l:'하이브리드',p:{budget:budget,maPeriod:200,dipThreshold:-10,rsiThreshold:30}}
+      {t:'dca',l:'적립식 (매월)',p:{budget:budget,frequency:'monthly'}},
+      {t:'dca',l:'적립식 (매주)',p:{budget:budget,frequency:'weekly'}},
+      {t:'ma',l:'이평선 (200일, 0%)',p:{budget:budget,maPeriod:200,maThreshold:0}},
+      {t:'ma',l:'이평선 (50일, -5%)',p:{budget:budget,maPeriod:50,maThreshold:-5}},
+      {t:'dip',l:'급락 매수 (-10%, RSI 30)',p:{budget:budget,dipThreshold:-10,rsiThreshold:30}},
+      {t:'dip',l:'급락 매수 (-20%, RSI 25)',p:{budget:budget,dipThreshold:-20,rsiThreshold:25}},
+      {t:'hybrid',l:'하이브리드 (MA200, -10%)',p:{budget:budget,maPeriod:200,dipThreshold:-10,rsiThreshold:30}}
     ];
     var all=[];
     ASSETS.forEach(function(tk){strats.forEach(function(s){var r=runStrategy(tk,s.t,s.p,sd,null);if(r){r.stratLabel=s.l;all.push(r);}});});
@@ -630,26 +671,42 @@ function TimeMachine(){
         React.createElement('div',{style:{fontSize:13,fontWeight:600,marginBottom:10}},'상위 3개 종목 곡선'),
         React.createElement(CanvasChart,{results:res.all.slice(0,3),showBH:false})
       ),
-      React.createElement('div',{style:{background:'var(--bg2)',border:'1px solid var(--bdr)',borderRadius:11,padding:16,maxHeight:480,overflowY:'auto'}},
+      React.createElement('div',{style:{background:'var(--bg2)',border:'1px solid var(--bdr)',borderRadius:11,padding:16,maxHeight:600,overflowY:'auto'}},
         React.createElement('div',{style:{fontSize:13,fontWeight:600,marginBottom:10}},'전체 결과 (상위 50개)'),
-        React.createElement('table',{className:'ct'},
-          React.createElement('thead',null,React.createElement('tr',null,
-            React.createElement('th',null,'순위'),React.createElement('th',null,'자산'),React.createElement('th',null,'전략'),React.createElement('th',null,'최종 자산'),React.createElement('th',null,'원금'),React.createElement('th',null,'수익률'),React.createElement('th',null,'CAGR'),React.createElement('th',null,'MDD')
-          )),
-          React.createElement('tbody',null,
-            res.all.slice(0,50).map(function(r,i){
-              return React.createElement('tr',{key:i},
-                React.createElement('td',{style:{color:i<3?'var(--y)':'var(--t4)'}},i+1),
-                React.createElement('td',{style:{color:COLORS[r.ticker],fontWeight:600}},r.label),
-                React.createElement('td',null,r.stratLabel),
-                React.createElement('td',{style:{color:'var(--g)',fontWeight:600}},fmt(r.finalValue)),
-                React.createElement('td',{style:{color:'var(--t2)'}},fmt(r.invested)),
-                React.createElement('td',{style:{color:r.totalReturn>0?'var(--g)':'var(--r)'}},fPct(r.totalReturn)),
-                React.createElement('td',null,fPct(r.cagr)),
-                React.createElement('td',{style:{color:'var(--r)'}},fPct(r.maxDD))
-              );
-            })
-          )
+        React.createElement('div',{style:{display:'flex',flexDirection:'column',gap:8}},
+          res.all.slice(0,50).map(function(r,i){
+            var statsRow=[
+              React.createElement('div',{key:'ret',style:{textAlign:'center'}},
+                React.createElement('div',{style:{fontSize:8,color:'var(--t4)'}},'수익률'),
+                React.createElement('div',{style:{fontFamily:'JetBrains Mono',fontSize:14,fontWeight:700,color:r.totalReturn>0?'var(--g)':'var(--r)'}},fPct(r.totalReturn))
+              ),
+              React.createElement('div',{key:'final',style:{textAlign:'center'}},
+                React.createElement('div',{style:{fontSize:8,color:'var(--t4)'}},'최종'),
+                React.createElement('div',{style:{fontFamily:'JetBrains Mono',fontSize:14,fontWeight:600,color:'var(--g)'}},fmt(r.finalValue))
+              ),
+              React.createElement('div',{key:'inv',style:{textAlign:'center'}},
+                React.createElement('div',{style:{fontSize:8,color:'var(--t4)'}},'원금'),
+                React.createElement('div',{style:{fontFamily:'JetBrains Mono',fontSize:13,color:'var(--t2)'}},fmt(r.invested))
+              ),
+              React.createElement('div',{key:'cagr',style:{textAlign:'center'}},
+                React.createElement('div',{style:{fontSize:8,color:'var(--t4)'}},'CAGR'),
+                React.createElement('div',{style:{fontFamily:'JetBrains Mono',fontSize:13,color:'var(--t1)'}},fPct(r.cagr))
+              ),
+              React.createElement('div',{key:'mdd',style:{textAlign:'center'}},
+                React.createElement('div',{style:{fontSize:8,color:'var(--t4)'}},'MDD'),
+                React.createElement('div',{style:{fontFamily:'JetBrains Mono',fontSize:13,color:'var(--r)'}},fPct(r.maxDD))
+              )
+            ];
+            return React.createElement('div',{key:i,style:{background:'var(--bg1)',border:'1px solid var(--bdr)',borderRadius:9,padding:'12px 14px'}},
+              React.createElement('div',{style:{display:'flex',alignItems:'center',gap:8,marginBottom:6}},
+                React.createElement('span',{style:{fontSize:i<3?16:12,fontWeight:800,color:i<3?'var(--y)':'var(--t4)',minWidth:24}},i<3?['🥇','🥈','🥉'][i]:(i+1)),
+                React.createElement('span',{style:{color:COLORS[r.ticker],fontWeight:700,fontSize:12}},r.label),
+                React.createElement('span',{style:{color:'var(--t3)',fontSize:11}},r.stratLabel)
+              ),
+              React.createElement('div',{style:{display:'flex',justifyContent:'space-around',gap:8,paddingTop:8,borderTop:'1px solid var(--bdr)'}},statsRow),
+              React.createElement(StratExplain,{label:r.stratLabel})
+            );
+          })
         )
       )
     )
@@ -1444,7 +1501,8 @@ function AISimulator(){
             React.createElement('div',{style:{fontSize:11,lineHeight:1.4,flex:1}},assetEls),
             React.createElement('span',{style:{fontSize:10,color:'var(--t3)',whiteSpace:'nowrap'}},r.period+'년')
           ),
-          React.createElement('div',{style:{display:'flex',justifyContent:'space-around',gap:8,paddingTop:8,borderTop:'1px solid var(--bdr)'}},statsRow)
+          React.createElement('div',{style:{display:'flex',justifyContent:'space-around',gap:8,paddingTop:8,borderTop:'1px solid var(--bdr)'}},statsRow),
+          React.createElement(StratExplain,{label:r.assets[0].stratLabel})
         );
       });
 
