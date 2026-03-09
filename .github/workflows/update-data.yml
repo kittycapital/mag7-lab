@@ -2,7 +2,7 @@ name: Update Mag 7 Data
 
 on:
   schedule:
-    - cron: '0 22 * * *'  # 7 AM KST daily
+    - cron: '0 22 * * 0-4'  # 평일만 (Sun-Thu UTC = Mon-Fri KST)
   workflow_dispatch:
 
 permissions:
