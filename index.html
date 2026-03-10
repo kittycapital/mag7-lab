@@ -337,14 +337,18 @@ function StratExplain(props){
 /* ===== 탭 1: 시뮬레이터 ===== */
 function Simulator(){
   var s=useState(['AAPL']),assets=s[0],setA=s[1];var s2=useState('dca'),strat=s2[0],setS=s2[1];var s3=useState('monthly'),freq=s3[0],setF=s3[1];var s4=useState(500),budget=s4[0],setB=s4[1];var s5=useState(200),maP=s5[0],setMP=s5[1];var s6=useState(0),maT=s6[0],setMT=s6[1];var s7=useState(-10),dipT=s7[0],setDT=s7[1];var s8=useState(30),rsiT=s8[0],setRT=s8[1];var s9=useState(10),period=s9[0],setP=s9[1];var s10=useState(null),res=s10[0],setR=s10[1];var s11=useState(false),busy=s11[0],setBusy=s11[1];
-  var run=function(){setBusy(true);setTimeout(function(){var sd=getStart(period);var r=[];assets.forEach(function(t){var result=runStrategy(t,strat,{budget:budget,frequency:freq,maPeriod:maP,maThreshold:maT,dipThreshold:dipT,rsiThreshold:rsiT},sd,null);if(result)r.push(result);});setR(r);setBusy(false);},30);};
+  var run=function(){setBusy(true);setTimeout(function(){var sd=getStart(period);var r=[];assets.forEach(function(t){var result=runStrategy(t,strat,{budget:budget,frequency:freq,maPeriod:maP,maThreshold:maT,dipThreshold:dipT,rsiThreshold:rsiT},sd,null);if(result){result.stratLabel=strat==='ma'?'이동평균선':strat==='dip'?'급락매수':'적립식';r.push(result);}});
+    /* DCA 기준선 추가 (이동평균/급락 전략일 때) */
+    var dcaBase=[];
+    if(strat!=='dca'){assets.forEach(function(t){var dcaResult=runStrategy(t,'dca',{budget:budget,frequency:'monthly'},sd,null);if(dcaResult){dcaResult.stratLabel='적립식 기준';dcaResult.isDcaBase=true;dcaBase.push(dcaResult);}});}
+    setR({main:r,dcaBase:dcaBase,all:r.concat(dcaBase)});setBusy(false);},30);};
   var sNames={dca:'정액 적립식 (DCA)',ma:'이동평균선 전략',dip:'급락 매수 전략'};
   var stratDefs=[{id:'dca',l:'정액 적립식',d:'정해진 주기로 동일 금액 매수'},{id:'ma',l:'이동평균선',d:'이평선 아래일 때만 매수 (나머지는 현금 대기)'},{id:'dip',l:'급락 매수',d:'최고가 대비 하락 & RSI 과매도일 때만 매수'}];
   return React.createElement('div',null,
     React.createElement(HelpBox,null,
       React.createElement('div',{className:'hitem'},React.createElement('b',null,'사용법: '),'왼쪽에서 자산과 전략을 선택하고 ',React.createElement('span',{style:{color:'var(--g)',fontWeight:600}},'▶ 실행'),' 버튼을 누르세요. 최대 4개 자산을 동시에 비교할 수 있습니다.'),
       React.createElement('div',{className:'hitem',style:{marginTop:8}},'💰 모든 전략은 매달 동일 금액이 현금 풀에 적립됩니다. 매수 조건이 안 맞으면 현금을 쌓아두고, 조건 충족 시 누적 현금 전액으로 매수합니다.'),
-      React.createElement('div',{className:'hitem',style:{marginTop:8}},'📈 차트의 ',React.createElement('span',{style:{color:'#8888aa',fontWeight:600}},'점선'),'은 거치식(같은 금액을 첫날 일시불 투자) 대비 성과를 보여줍니다.')
+      React.createElement('div',{className:'hitem',style:{marginTop:8}},'📈 이동평균선/급락 매수 전략 선택 시, 정액 적립식(DCA)을 기준선으로 함께 비교합니다.')
     ),
     React.createElement('div',{className:'sim-layout'},
     React.createElement('div',{className:'sidebar'},
@@ -364,7 +368,7 @@ function Simulator(){
         React.createElement('div',{className:'sgrp'},React.createElement('div',{className:'shdr'},React.createElement('span',{className:'slbl'},'RSI 기준'),React.createElement('span',{className:'sval'},rsiT)),React.createElement('input',{type:'range',min:15,max:50,step:1,value:rsiT,onChange:function(e){setRT(+e.target.value);}}))
       ),
       React.createElement('div',{className:'stitle'},'투자 기간'),
-      (function(){var STEPS=[3,5,10,15,20,25];var idx=STEPS.indexOf(period);if(idx<0)idx=2;return React.createElement('div',{style:{width:'100%',maxWidth:400}},React.createElement('div',{style:{display:'flex',justifyContent:'space-between',marginBottom:5}},React.createElement('span',{style:{fontSize:10,color:'var(--t4)'}},'투자 기간'),React.createElement('span',{style:{fontFamily:'JetBrains Mono',fontSize:13,fontWeight:700,color:'var(--g)'}},period+'년')),React.createElement('input',{type:'range',min:0,max:5,step:1,value:idx,onChange:function(e){setP(STEPS[+e.target.value]);},style:{width:'100%'}}),React.createElement('div',{style:{display:'flex',justifyContent:'space-between',marginTop:3}},STEPS.map(function(y){return React.createElement('span',{key:y,style:{fontSize:9,color:period===y?'var(--g)':'var(--t4)',fontWeight:period===y?700:400,fontFamily:'JetBrains Mono',cursor:'pointer'},onClick:function(){setP(y);}},y+'년');})));})(),
+       (function(){var STEPS=[3,5,10,15,20,25];var idx=STEPS.indexOf(period);if(idx<0)idx=2;return React.createElement('div',{style:{width:'100%',maxWidth:400}},React.createElement('div',{style:{display:'flex',justifyContent:'space-between',marginBottom:5}},React.createElement('span',{style:{fontSize:10,color:'var(--t4)'}},'투자 기간'),React.createElement('span',{style:{fontFamily:'JetBrains Mono',fontSize:13,fontWeight:700,color:'var(--g)'}},period+'년')),React.createElement('input',{type:'range',min:0,max:5,step:1,value:idx,onChange:function(e){setP(STEPS[+e.target.value]);},style:{width:'100%'}}),React.createElement('div',{style:{display:'flex',justifyContent:'space-between',marginTop:3}},STEPS.map(function(y){return React.createElement('span',{key:y,style:{fontSize:9,color:period===y?'var(--g)':'var(--t4)',fontWeight:period===y?700:400,fontFamily:'JetBrains Mono',cursor:'pointer'},onClick:function(){setP(y);}},y+'년');})));})(),
       React.createElement('button',{className:'runbtn',onClick:run},'▶ 시뮬레이션 실행')
     ),
     React.createElement('div',{className:'rpanel'},
@@ -372,22 +376,23 @@ function Simulator(){
       !res?React.createElement('div',{className:'empty'},React.createElement('div',{className:'ic'},'📊'),React.createElement('span',{className:'mg'},'자산과 전략을 선택한 후 실행 버튼을 누르세요')):
       React.createElement(React.Fragment,null,
         React.createElement('div',{style:{fontSize:15,fontWeight:600,marginBottom:16}},sNames[strat]+' — '+period+'년 백테스트'),
-        React.createElement(CanvasChart,{results:res,showBH:true}),
-        res.map(function(r){
+        React.createElement(CanvasChart,{results:res.all,showBH:false}),
+        res.main.map(function(r,ri){
+          var dcaR=res.dcaBase[ri];
           return React.createElement('div',{key:r.ticker,style:{marginBottom:20}},
             React.createElement('div',{style:{display:'flex',alignItems:'center',gap:7,marginBottom:10}},React.createElement('div',{style:{width:10,height:10,borderRadius:3,background:COLORS[r.ticker]}}),React.createElement('span',{style:{fontWeight:700,fontSize:14}},r.label),React.createElement('span',{style:{color:'var(--t4)',fontSize:11,fontFamily:'JetBrains Mono'}},r.ticker)),
             React.createElement('div',{className:'sgrid'},
               React.createElement(SC,{label:'최종 자산 (자산+현금)',value:fmt(r.finalValue),sub:'투자 원금: '+fmt(r.invested),pos:r.finalValue>r.invested}),
-              React.createElement(SC,{label:'총 수익률',value:fPct(r.totalReturn),sub:'거치식: '+fPct(r.bhReturn),pos:r.totalReturn>0}),
+              React.createElement(SC,{label:'총 수익률',value:fPct(r.totalReturn),sub:dcaR?'적립식: '+fPct(dcaR.totalReturn):null,pos:r.totalReturn>0}),
               React.createElement(SC,{label:'연평균 수익률 (CAGR)',value:fPct(r.cagr),pos:r.cagr>0}),
               React.createElement(SC,{label:'최대 낙폭 (MDD)',value:fPct(r.maxDD),pos:false}),
               React.createElement(SC,{label:'평균 매수가',value:'$'+fNum(r.avgCost),sub:fNum(r.shares)+' 주 · '+r.numBuys+'회 매수'}),
               React.createElement(SC,{label:'현금 잔고',value:fmt(r.cash||0),sub:'실 투입: '+fmt(r.actualInvested||r.invested)})
             ));
         }),
-        res.length>1&&React.createElement(React.Fragment,null,
+        res.main.length>1&&React.createElement(React.Fragment,null,
           React.createElement('div',{style:{fontSize:13,fontWeight:600,marginBottom:10}},'자산 비교'),
-          React.createElement('table',{className:'ct'},React.createElement('thead',null,React.createElement('tr',null,React.createElement('th',null,'자산'),React.createElement('th',null,'최종 자산'),React.createElement('th',null,'수익률'),React.createElement('th',null,'CAGR'),React.createElement('th',null,'MDD'),React.createElement('th',null,'vs 거치식'))),React.createElement('tbody',null,res.slice().sort(function(a,b){return b.finalValue-a.finalValue;}).map(function(r){return React.createElement('tr',{key:r.ticker},React.createElement('td',{style:{color:COLORS[r.ticker],fontWeight:600}},r.label),React.createElement('td',{style:{color:'var(--g)'}},fmt(r.finalValue)),React.createElement('td',{style:{color:r.totalReturn>0?'var(--g)':'var(--r)'}},fPct(r.totalReturn)),React.createElement('td',null,fPct(r.cagr)),React.createElement('td',{style:{color:'var(--r)'}},fPct(r.maxDD)),React.createElement('td',{style:{color:r.totalReturn>r.bhReturn?'var(--g)':'var(--r)'}},(r.totalReturn>r.bhReturn?'▲ ':'▼ ')+Math.abs(r.totalReturn-r.bhReturn).toFixed(1)+'%'));})))
+          React.createElement('table',{className:'ct'},React.createElement('thead',null,React.createElement('tr',null,React.createElement('th',null,'자산'),React.createElement('th',null,'최종 자산'),React.createElement('th',null,'수익률'),React.createElement('th',null,'CAGR'),React.createElement('th',null,'MDD'),strat!=='dca'&&React.createElement('th',null,'vs 적립식'))),React.createElement('tbody',null,res.main.slice().sort(function(a,b){return b.finalValue-a.finalValue;}).map(function(r,ri){var dcaR=res.dcaBase.find(function(d){return d.ticker===r.ticker;});var diff=dcaR?(r.totalReturn-dcaR.totalReturn):0;return React.createElement('tr',{key:r.ticker},React.createElement('td',{style:{color:COLORS[r.ticker],fontWeight:600}},r.label),React.createElement('td',{style:{color:'var(--g)'}},fmt(r.finalValue)),React.createElement('td',{style:{color:r.totalReturn>0?'var(--g)':'var(--r)'}},fPct(r.totalReturn)),React.createElement('td',null,fPct(r.cagr)),React.createElement('td',{style:{color:'var(--r)'}},fPct(r.maxDD)),strat!=='dca'&&React.createElement('td',{style:{color:diff>=0?'var(--g)':'var(--r)'}},(diff>=0?'▲ ':'▼ ')+Math.abs(diff).toFixed(1)+'%'));})))
         )
       )
     ))
@@ -567,7 +572,7 @@ function BestPortfolios(){
     React.createElement('div',{style:{textAlign:'center',padding:'28px 0 18px'}},
       React.createElement('h2',{style:{fontSize:26,fontWeight:800,marginBottom:8}},'🤷 무지성 적립식 최강 조합'),
       React.createElement('p',{style:{fontSize:14,marginBottom:16,lineHeight:1.7}},'매달 ',React.createElement('span',{style:{color:'#00ff88',fontWeight:800,fontSize:16}},'$500'),', 아무 생각 없이 ',React.createElement('span',{style:{color:'#ffcc00',fontWeight:700}},'꾸준히 넣기만'),' 했다면',React.createElement('br',null),'어떤 자산이 ',React.createElement('span',{style:{color:'#4488ff',fontWeight:700}},'최고'),'였을까?'),
-      (function(){var STEPS=[1,3,5,10,15,20,25];var idx=STEPS.indexOf(period);if(idx<0)idx=3;return React.createElement('div',{style:{width:'100%',maxWidth:420,margin:'0 auto'}},React.createElement('div',{style:{display:'flex',justifyContent:'space-between',marginBottom:6}},React.createElement('span',{style:{fontSize:11,color:'var(--t4)'}},'투자 기간'),React.createElement('span',{style:{fontFamily:'JetBrains Mono',fontSize:15,fontWeight:700,color:'var(--g)'}},period+'년')),React.createElement('input',{type:'range',min:0,max:6,step:1,value:idx,onChange:function(e){setP(STEPS[+e.target.value]);},style:{width:'100%'}}),React.createElement('div',{style:{display:'flex',justifyContent:'space-between',marginTop:4}},STEPS.map(function(y){return React.createElement('span',{key:y,style:{fontSize:9,color:period===y?'var(--g)':'var(--t4)',fontWeight:period===y?700:400,fontFamily:'JetBrains Mono',cursor:'pointer',transition:'.15s'},onClick:function(){setP(y);}},y+'년');})));})()
+       (function(){var STEPS=[1,3,5,10,15,20,25];var idx=STEPS.indexOf(period);if(idx<0)idx=3;return React.createElement('div',{style:{width:'100%',maxWidth:420,margin:'0 auto'}},React.createElement('div',{style:{display:'flex',justifyContent:'space-between',marginBottom:6}},React.createElement('span',{style:{fontSize:11,color:'var(--t4)'}},'투자 기간'),React.createElement('span',{style:{fontFamily:'JetBrains Mono',fontSize:15,fontWeight:700,color:'var(--g)'}},period+'년')),React.createElement('input',{type:'range',min:0,max:6,step:1,value:idx,onChange:function(e){setP(STEPS[+e.target.value]);},style:{width:'100%'}}),React.createElement('div',{style:{display:'flex',justifyContent:'space-between',marginTop:4}},STEPS.map(function(y){return React.createElement('span',{key:y,style:{fontSize:9,color:period===y?'var(--g)':'var(--t4)',fontWeight:period===y?700:400,fontFamily:'JetBrains Mono',cursor:'pointer',transition:'.15s'},onClick:function(){setP(y);}},y+'년');})));})()
     ),
     busy?React.createElement('div',{className:'loading'},React.createElement('div',{className:'spinner'})):
     res&&React.createElement(React.Fragment,null,
