@@ -543,11 +543,15 @@ function BestPortfolios(){
     var byS=av.slice().sort(function(a,b){var sa=ar[a].maxDD!==0?ar[a].cagr/Math.abs(ar[a].maxDD):0;var sb=ar[b].maxDD!==0?ar[b].cagr/Math.abs(ar[b].maxDD):0;return sb-sa;});
     var build=function(ranked,name,desc,pfColor){
       var top=ranked.slice(0,5),ws=[20,20,20,20,20];var allocs=top.map(function(t,i){var o=Object.assign({},ar[t]);o.w=ws[i];o.color=PC[ASSETS.indexOf(t)];return o;});
-      var wr=allocs.reduce(function(s,a){return s+a.totalReturn*a.w/100;},0);var wc=allocs.reduce(function(s,a){return s+a.cagr*a.w/100;},0);
       var minLen=Infinity;allocs.forEach(function(a){if(a.curve&&a.curve.length<minLen)minLen=a.curve.length;});
       var pfCurve=[],pfDates=[];
       if(minLen>0&&minLen<Infinity){for(var i=0;i<minLen;i++){var wVal=0;allocs.forEach(function(a){if(a.curve&&a.curve[i])wVal+=a.curve[i].value*(a.w/100);});pfCurve.push(Math.round(wVal*100)/100);if(allocs[0].curve[i])pfDates.push(allocs[0].curve[i].date);}}
-      return{name:name,desc:desc,allocs:allocs,wr:wr,wc:wc,pfCurve:pfCurve,pfDates:pfDates,pfColor:pfColor};
+      var invested=allocs[0]?allocs[0].invested:0;
+      var finalVal=pfCurve.length>0?pfCurve[pfCurve.length-1]:0;
+      var wr=invested>0?(finalVal-invested)/invested*100:0;
+      var years=period;var wc=years>0&&invested>0?(Math.pow(finalVal/invested,1/years)-1)*100:0;
+      var pfMDD=0;if(pfCurve.length>0){var pk=pfCurve[0];for(var mi=1;mi<pfCurve.length;mi++){if(pfCurve[mi]>pk)pk=pfCurve[mi];var dd=(pfCurve[mi]-pk)/pk*100;if(dd<pfMDD)pfMDD=dd;}}
+      return{name:name,desc:desc,allocs:allocs,wr:wr,wc:wc,pfMDD:pfMDD,invested:invested,finalVal:finalVal,pfCurve:pfCurve,pfDates:pfDates,pfColor:pfColor};
     };
     setR({maxR:build(byR,'🚀 최대 수익','총 수익률 최대화 기준',PF_COLORS[0]),bestS:build(byS,'⚖️ 최고 위험 대비 수익','낙폭 대비 수익률 최적화',PF_COLORS[1]),lowDD:build(byDD,'🛡️ 최소 낙폭','포트폴리오 하락 최소화',PF_COLORS[2]),ind:av.map(function(t){return ar[t];}).sort(function(a,b){return b.totalReturn-a.totalReturn;})});
     setBusy(false);
@@ -571,7 +575,12 @@ function BestPortfolios(){
         return React.createElement('div',{key:pi,className:'pfcard'},
           React.createElement('h3',null,p.name),React.createElement('div',{className:'dd'},p.desc),
           React.createElement('div',{style:{fontFamily:'JetBrains Mono',fontSize:18,fontWeight:700,color:'var(--g)',marginBottom:3}},fPct(p.wr)+' 수익'),
-          React.createElement('div',{style:{fontFamily:'JetBrains Mono',fontSize:11,color:'var(--t2)',marginBottom:10}},'CAGR: '+fPct(p.wc)),
+          React.createElement('div',{style:{display:'flex',gap:12,marginBottom:10,flexWrap:'wrap'}},
+            React.createElement('span',{style:{fontFamily:'JetBrains Mono',fontSize:10,color:'var(--t3)'}},'최종: '+fmt(p.finalVal)),
+            React.createElement('span',{style:{fontFamily:'JetBrains Mono',fontSize:10,color:'var(--t4)'}},'원금: '+fmt(p.invested)),
+            React.createElement('span',{style:{fontFamily:'JetBrains Mono',fontSize:10,color:'var(--t3)'}},'CAGR: '+fPct(p.wc)),
+            React.createElement('span',{style:{fontFamily:'JetBrains Mono',fontSize:10,color:'var(--r)'}},'MDD: '+fPct(p.pfMDD))
+          ),
           React.createElement(Sparkline,{data:p.pfCurve,color:p.pfColor,height:100}),
           React.createElement('div',{className:'abar'},p.allocs.map(function(a,i){return React.createElement('div',{key:i,style:{width:a.w+'%',background:a.color},title:a.label+': '+a.w+'%'});})),
           React.createElement('div',{className:'alist'},p.allocs.map(function(a,i){return React.createElement('div',{key:i,className:'aitm'},React.createElement('span',null,React.createElement('span',{className:'dot',style:{background:a.color}}),a.label),React.createElement('span',{style:{fontFamily:'JetBrains Mono',fontWeight:600}},a.w+'% · '+fPct(a.totalReturn)));}))
